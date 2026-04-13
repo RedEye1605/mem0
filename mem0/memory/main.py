@@ -1235,7 +1235,7 @@ class Memory(MemoryBase):
         memory_id = str(uuid.uuid4())
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["hash"] = hashlib.md5(data.encode("utf-8")).hexdigest()
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
@@ -1314,7 +1314,7 @@ class Memory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["hash"] = hashlib.md5(data.encode("utf-8")).hexdigest()
         new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 
@@ -2391,7 +2391,7 @@ class AsyncMemory(MemoryBase):
         memory_id = str(uuid.uuid4())
         new_metadata = deepcopy(metadata) if metadata is not None else {}
         new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["hash"] = hashlib.md5(data.encode("utf-8")).hexdigest()
         if "created_at" not in new_metadata:
             new_metadata["created_at"] = datetime.now(timezone.utc).isoformat()
         new_metadata["updated_at"] = new_metadata["created_at"]
@@ -2488,7 +2488,7 @@ class AsyncMemory(MemoryBase):
         new_metadata = deepcopy(metadata) if metadata is not None else {}
 
         new_metadata["data"] = data
-        new_metadata["hash"] = hashlib.md5(data.encode()).hexdigest()
+        new_metadata["hash"] = hashlib.md5(data.encode("utf-8")).hexdigest()
         new_metadata["created_at"] = _normalize_iso_timestamp_to_utc(existing_memory.payload.get("created_at"))
         new_metadata["updated_at"] = datetime.now(timezone.utc).isoformat()
 

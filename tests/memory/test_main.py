@@ -1,3 +1,4 @@
+import hashlib
 import logging
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, Mock
@@ -864,3 +865,73 @@ def test_normalize_iso_timestamp_to_utc_handles_none():
 
 def test_normalize_iso_timestamp_to_utc_handles_empty():
     assert _normalize_iso_timestamp_to_utc("") == ""
+
+
+class TestMemoryHashUTF8Encoding:
+    """Verify that _create_memory and _update_memory use UTF-8 encoding for MD5 hashes.
+
+    On systems with a non-UTF-8 default encoding, .encode() without arguments would
+    produce different hashes or raise UnicodeEncodeError. This test ensures we always
+    use UTF-8 so that memory deduplication is consistent across environments.
+    """
+
+    @pytest.mark.parametrize("memory_cls", [Memory, AsyncMemory], ids=["sync", "async"])
+    def test_create_memory_hash_with_unicode_content(self, mocker, memory_cls):
+        """Non-ASCII content should produce a valid, deterministic MD5 hash."""
+        memory = _build_memory_instance(mocker, memory_cls)
+        unicode_data = "用户喜欢吃披萨，住在雅加达"
+
+        if memory_cls is AsyncMemory:
+            import asyncio
+
+            asyncio.get_event_loop().run_until_complete(
+                memory._create_memory(unicode_data, {unicode_data: [0.1, 0.2, 0.3]}, metadata={})
+            )
+        else:
+            memory._create_memory(unicode_data, {unicode_data: [0.1, 0.2, 0.3]}, metadata={})
+
+        payload = memory.vector_store.insert.call_args.kwargs["payloads"][0]
+        expected_hash = hashlib.md5(unicode_data.encode("utf-8")).hexdigest()
+        assert payload["hash"] == expected_hash
+
+    @pytest.mark.parametrize("memory_cls", [Memory, AsyncMemory], ids=["sync", "async"])
+    def test_update_memory_hash_with_unicode_content(self, mocker, memory_cls):
+        """Non-ASCII content in update should produce a valid, deterministic MD5 hash."""
+        memory = _build_memory_instance(mocker, memory_cls)
+        unicode_data = "プレイヤー #1 は良い人です"
+        memory.vector_store.get.return_value = MagicMock(
+            payload={"data": "old", "created_at": "2026-01-01T00:00:00+00:00"}
+        )
+
+        if memory_cls is AsyncMemory:
+            import asyncio
+
+            asyncio.get_event_loop().run_until_complete(
+                memory._update_memory("mem-id", unicode_data, {unicode_data: [0.1, 0.2, 0.3]}, metadata={})
+            )
+        else:
+            memory._update_memory("mem-id", unicode_data, {unicode_data: [0.1, 0.2, 0.3]}, metadata={})
+
+        payload = memory.vector_store.update.call_args.kwargs["payload"]
+        expected_hash = hashlib.md5(unicode_data.encode("utf-8")).hexdigest()
+        assert payload["hash"] == expected_hash
+
+    @pytest.mark.parametrize("memory_cls", [Memory, AsyncMemory], ids=["sync", "async"])
+    def test_create_memory_hash_deterministic_across_calls(self, mocker, memory_cls):
+        """Same content must always produce the same hash — deduplication depends on it."""
+        memory = _build_memory_instance(mocker, memory_cls)
+        data = "Alice works at Acme Corp"
+
+        if memory_cls is AsyncMemory:
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            loop.run_until_complete(memory._create_memory(data, {data: [0.1, 0.2, 0.3]}, metadata={}))
+            loop.run_until_complete(memory._create_memory(data, {data: [0.4, 0.5, 0.6]}, metadata={}))
+        else:
+            memory._create_memory(data, {data: [0.1, 0.2, 0.3]}, metadata={})
+            memory._create_memory(data, {data: [0.4, 0.5, 0.6]}, metadata={})
+
+        first_hash = memory.vector_store.insert.call_args_list[0].kwargs["payloads"][0]["hash"]
+        second_hash = memory.vector_store.insert.call_args_list[1].kwargs["payloads"][0]["hash"]
+        assert first_hash == second_hash

@@ -1,7 +1,7 @@
 import hashlib
 import logging
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from mem0.configs.prompts import (
     AGENT_MEMORY_EXTRACTION_PROMPT,
@@ -12,7 +12,7 @@ from mem0.configs.prompts import (
 logger = logging.getLogger(__name__)
 
 
-def get_fact_retrieval_messages(message, is_agent_memory=False):
+def get_fact_retrieval_messages(message: str, is_agent_memory: bool = False) -> Tuple[str, str]:
     """Get fact retrieval messages based on the memory type.
     
     Args:
@@ -28,12 +28,12 @@ def get_fact_retrieval_messages(message, is_agent_memory=False):
         return USER_MEMORY_EXTRACTION_PROMPT, f"Input:\n{message}"
 
 
-def get_fact_retrieval_messages_legacy(message):
+def get_fact_retrieval_messages_legacy(message: str) -> Tuple[str, str]:
     """Legacy function for backward compatibility."""
     return FACT_RETRIEVAL_PROMPT, f"Input:\n{message}"
 
 
-def ensure_json_instruction(system_prompt, user_prompt):
+def ensure_json_instruction(system_prompt: str, user_prompt: str) -> Tuple[str, str]:
     """Ensure the word 'json' appears in the prompts when using json_object response format.
 
     OpenAI's API requires the word 'json' to appear in the messages when
@@ -58,7 +58,7 @@ def ensure_json_instruction(system_prompt, user_prompt):
     return system_prompt, user_prompt
 
 
-def parse_messages(messages):
+def parse_messages(messages: List[Dict[str, str]]) -> str:
     response = ""
     for msg in messages:
         if msg["role"] == "system":
@@ -70,7 +70,7 @@ def parse_messages(messages):
     return response
 
 
-def format_entities(entities):
+def format_entities(entities: List[Dict[str, str]]) -> str:
     if not entities:
         return ""
 
@@ -81,7 +81,7 @@ def format_entities(entities):
 
     return "\n".join(formatted_lines)
 
-def normalize_facts(raw_facts):
+def normalize_facts(raw_facts: List[Any]) -> List[str]:
     """Normalize LLM-extracted facts to a list of strings.
 
     Smaller LLMs (e.g. llama3.1:8b) sometimes return facts as objects
@@ -122,7 +122,7 @@ def remove_code_blocks(content: str) -> str:
 
 
 
-def extract_json(text):
+def extract_json(text: str) -> str:
     """
     Extracts JSON content from a string, removing enclosing triple backticks and optional 'json' tag if present.
     If no code block is found, attempts to locate JSON by finding the first '{' and last '}'.
@@ -142,7 +142,7 @@ def extract_json(text):
     return json_str
 
 
-def get_image_description(image_obj, llm, vision_details):
+def get_image_description(image_obj: Union[str, Dict[str, Any]], llm: Any, vision_details: str) -> str:
     """
     Get the description of the image
     """
@@ -167,7 +167,11 @@ def get_image_description(image_obj, llm, vision_details):
     return response
 
 
-def parse_vision_messages(messages, llm=None, vision_details="auto"):
+def parse_vision_messages(
+    messages: List[Dict[str, Any]],
+    llm: Optional[Any] = None,
+    vision_details: str = "auto",
+) -> List[Dict[str, Any]]:
     """
     Parse the vision messages from the messages
     """
@@ -197,7 +201,7 @@ def parse_vision_messages(messages, llm=None, vision_details="auto"):
     return returned_messages
 
 
-def process_telemetry_filters(filters):
+def process_telemetry_filters(filters: Optional[Dict[str, str]]) -> Union[Dict[str, Any], Tuple[List[str], Dict[str, str]]]:
     """
     Process the telemetry filters
     """
@@ -206,16 +210,16 @@ def process_telemetry_filters(filters):
 
     encoded_ids = {}
     if "user_id" in filters:
-        encoded_ids["user_id"] = hashlib.md5(filters["user_id"].encode()).hexdigest()
+        encoded_ids["user_id"] = hashlib.md5(filters["user_id"].encode("utf-8")).hexdigest()
     if "agent_id" in filters:
-        encoded_ids["agent_id"] = hashlib.md5(filters["agent_id"].encode()).hexdigest()
+        encoded_ids["agent_id"] = hashlib.md5(filters["agent_id"].encode("utf-8")).hexdigest()
     if "run_id" in filters:
-        encoded_ids["run_id"] = hashlib.md5(filters["run_id"].encode()).hexdigest()
+        encoded_ids["run_id"] = hashlib.md5(filters["run_id"].encode("utf-8")).hexdigest()
 
     return list(filters.keys()), encoded_ids
 
 
-def sanitize_relationship_for_cypher(relationship) -> str:
+def sanitize_relationship_for_cypher(relationship: str) -> str:
     """Sanitize relationship text for Cypher queries by replacing problematic characters."""
     char_map = {
         "...": "_ellipsis_",
